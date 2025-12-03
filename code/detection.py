@@ -15,14 +15,22 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model.to(device)
 
 def setup_socket():
+    import atexit
+
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind(('localhost', 9999))
     server_socket.listen(1)
     print("Waiting for client connection...")
-    subprocess.Popen(["python", "coordinates.py"])
+
+    # Launch subprocess and keep reference
+    process = subprocess.Popen(["python", "coordinates.py"])
+
+    # Ensure subprocess is killed when main program exits
+    atexit.register(lambda: process.terminate())
+
     conn, addr = server_socket.accept()
     print(f"Connected by {addr}")
-    return conn
+    return conn, process
 
 def send_coordinates(cx, cy, conn):
     data = json.dumps({"cx": cx, "cy": cy})
@@ -58,15 +66,14 @@ def  virtual_court_display(resized_frame, cx, cy):
     dot_x = int(((cx * 212 ) / 600) + 9)
     dot_y = int(((cy * 203 ) / 660) + 8)
 
-    # dot = []
-    # for x_val in x:
-    #     for y_val in y:
-    #         dot.append((x_val, y_val))
+    cv2.line(court_rgb, (int(10+(virtualCourtX)/3), 10), (int(10+(virtualCourtX)/3), virtualCourtY+10), color=(0, 255, 255), thickness=2)
+    cv2.line(court_rgb, (int(10+(virtualCourtX)*2/3), 10), (int(10+(virtualCourtX)*2/3), virtualCourtY+10), color=(0, 255, 255), thickness=2)
+    cv2.line(court_rgb, (10, int(10+(virtualCourtY)/3)), (virtualCourtX+10, int(10+(virtualCourtY)/3)), color=(0, 255, 255), thickness=2)
+    cv2.line(court_rgb, (10, int(10+(virtualCourtY)*2/3)), (virtualCourtX+10, int(10+(virtualCourtY)*2/3)), color=(0, 255, 255), thickness=2)
 
-    # for item in dot:
-    #     cv2.circle(court_rgb, item, radius=4, color=(0, 0, 255), thickness=-1)
     if cx != 0 and cy != 0:
         cv2.circle(court_rgb, (dot_x, dot_y), radius=4, color=(0, 0, 255), thickness=-1)
+
     overlay_image_alpha(resized_frame, court_rgb, x_offset, y_offset, alpha=0.5)
 
     return(virtualCourtX, virtualCourtY)
@@ -110,91 +117,93 @@ def detect_red_dot_opencv(transformed_frame):
             #cv2.imshow("Exact Red Dot Detection", transformed_frame)
             return cx, cy
 
-    # If no red dot was found
-    #cv2.imshow("Exact Red Dot Detection", transformed_frame)
     return None, None
 
 def main_program(cap):
-    conn = setup_socket()
+    conn, process  = setup_socket()
     cx, cy = 0, 0
     cv2.namedWindow("YOLOv10 Detection with Red Dot", cv2.WINDOW_NORMAL)
     # cv2.setWindowProperty("YOLOv10 Detection with Red Dot", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     cv2.resizeWindow("YOLOv10 Detection with Red Dot", 1080, 640)
     cv2.setMouseCallback("YOLOv10 Detection with Red Dot", mouse_callback)
+    try:
+        while cap.isOpened() and cv2.getWindowProperty("YOLOv10 Detection with Red Dot", cv2.WND_PROP_VISIBLE) >= 1:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-    while cap.isOpened() and cv2.getWindowProperty("YOLOv10 Detection with Red Dot", cv2.WND_PROP_VISIBLE) >= 1:
-        ret, frame = cap.read()
-        if not ret:
-            break
+            start_time = time.time()
+            width = int(1080*1.5)
+            height = int(640*1.5)
+            resized_frame = cv2.resize(frame, (width, height))
+            results = model(resized_frame, verbose=False)
+            boxes = results[0].boxes
 
-        start_time = time.time()
-        width = int(1080*1.5)
-        height = int(640*1.5)
-        resized_frame = cv2.resize(frame, (width, height))
-        results = model(resized_frame, verbose=False)
-        boxes = results[0].boxes
+            # Draw YOLO detections
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cls = int(box.cls[0])
+                conf = float(box.conf[0])
 
-        # Draw YOLO detections
-        for box in boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cls = int(box.cls[0])
-            conf = float(box.conf[0])
+                if model.names[cls] == "remote" or model.names[cls] == "person": #person
+                    cv2.rectangle(resized_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    label = f"{model.names[cls]} {conf:.2f}"
+                    cv2.putText(resized_frame, label, (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+                    mid_x = x1 + (x2 - x1) // 2
+                    bottom_y = y2
+                    cv2.circle(resized_frame, (mid_x, bottom_y), 4, (0, 0, 255), -1)
+                    coordinates = f"({mid_x}, {bottom_y})"
+                    # cv2.putText(resized_frame, coordinates, (mid_x + 5, bottom_y),
+                    #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
-            if model.names[cls] == "remote" or model.names[cls] == "person": #person
-                cv2.rectangle(resized_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                label = f"{model.names[cls]} {conf:.2f}"
-                cv2.putText(resized_frame, label, (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
-                mid_x = x1 + (x2 - x1) // 2
-                bottom_y = y2
-                cv2.circle(resized_frame, (mid_x, bottom_y), 4, (0, 0, 255), -1)
-                coordinates = f"({mid_x}, {bottom_y})"
-                # cv2.putText(resized_frame, coordinates, (mid_x + 5, bottom_y),
-                #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+            # Draw user-added dots
+            for idx, (dx, dy) in enumerate(user_dots, start=1):
+                cv2.circle(resized_frame, (dx, dy), 6, (255, 0, 0), -1)  
+                cv2.putText(resized_frame, f"{idx}", (dx + 8, dy),  # show the dot number
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
-        # Draw user-added dots
-        for idx, (dx, dy) in enumerate(user_dots, start=1):
-            cv2.circle(resized_frame, (dx, dy), 6, (255, 0, 0), -1)  # blue dot
-            cv2.putText(resized_frame, f"{idx}", (dx + 8, dy),  # show the dot number
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+            fps = 1 / (time.time() - start_time)
+            cv2.putText(resized_frame, f"FPS: {fps:.2f}", (10, 25),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
 
-        fps = 1 / (time.time() - start_time)
-        cv2.putText(resized_frame, f"FPS: {fps:.2f}", (10, 25),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-
-        if len(user_dots) == 4:
-            transformed_frame = perspective_transform(user_dots[0], user_dots[1], user_dots[2], user_dots[3], resized_frame)
-            cx, cy = detect_red_dot_opencv(transformed_frame)
-            send_coordinates(cx, cy, conn)
-            if cx is not None and cy is not None:
-                pass
-                # print("Red dot detected at:", cx, cy)
+            if len(user_dots) == 4:
+                transformed_frame = perspective_transform(user_dots[0], user_dots[1], user_dots[2], user_dots[3], resized_frame)
+                cx, cy = detect_red_dot_opencv(transformed_frame)
+                send_coordinates(cx, cy, conn)
+                if cx is not None and cy is not None:
+                    pass
+                    # print("Red dot detected at:", cx, cy)
+                else:
+                    cx, cy = 0, 0
             else:
                 cx, cy = 0, 0
-        else:
-            cx, cy = 0, 0
 
-        virtual_court_display(resized_frame, cx, cy)    
-        
-        cv2.imshow("YOLOv10 Detection with Red Dot", resized_frame)
+            virtual_court_display(resized_frame, cx, cy)    
+            
+            cv2.imshow("YOLOv10 Detection with Red Dot", resized_frame)
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == 27:  # ESC to exit
-            break
-        elif key == ord('u'):  # Undo last dot
-            print("user_dots=", user_dots)
-            if user_dots:
-                removed = user_dots.pop()
-                print(f"Removed dot at: {removed}")
-            else:
-                print("No dots to remove.")
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27:  # ESC to exit
+                break
+            elif key == ord('u'):  # Undo last dot
+                print("user_dots=", user_dots)
+                if user_dots:
+                    removed = user_dots.pop()
+                    print(f"Removed dot at: {removed}")
+                else:
+                    print("No dots to remove.")
+    finally:
+        # Clean up
+        process.terminate()          # kill subprocess
+        cap.release()
+        cv2.destroyAllWindows()
+        print("Program exited and subprocess terminated.")
 
-    # cap.release()
-    # cv2.destroyAllWindows()
 
 def main():
     #choice = input("Choose an option:\n1) Stream\n2) Recorded Video\nEnter 1 or 2: ")
-    choice = "1"
+    choice = "2"
 
     if choice == "1":
         # Open webcam

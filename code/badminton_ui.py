@@ -14,7 +14,7 @@ from enum import Enum
 from time import sleep
 
 x_degree_val = 0
-y_degree_val = 162
+y_degree_val = 0
 lift_val = 0
 motor_speed_val = 0
 period = 1
@@ -293,7 +293,7 @@ class Ui_MainWindow(object):
             global lift_val
             lift_val = 0
             self.liftValueLabel.setText(str(lift_val)) 
-            sys1.main(self.arduino1, "motor_home")
+            #sys1.main(self.arduino1, "motor_home")
             sys2.main(self.arduino2, "motor_home")
             self.enable_all_buttons()
             self.homeButton.setStyleSheet("")
@@ -338,21 +338,21 @@ class Ui_MainWindow(object):
         self.enable_all_buttons()
         print("Stop button clicked")
 
-    def handle_down(self):
+    def handle_up(self):
         global y_degree_val
-        if y_degree_val < 180:
+        if y_degree_val < 100:
             y_degree_val += 1
             self.yValueLabel.setText(str(y_degree_val))
-            cmd = "servoAngle_" + str(y_degree_val)
+            cmd = "stepperAngle_" + str(y_degree_val)
             sys2.main(self.arduino2, cmd)
         print("Up button clicked")
 
-    def handle_up(self):
+    def handle_down(self):
         global y_degree_val
         if y_degree_val > 0:
             y_degree_val -= 1
             self.yValueLabel.setText(str(y_degree_val)) 
-            cmd = "servoAngle_" + str(y_degree_val)
+            cmd = "stepperAngle_" + str(y_degree_val)
             sys2.main(self.arduino2, cmd)
         print("Down button clicked")
 
@@ -381,7 +381,7 @@ class Ui_MainWindow(object):
         print("Lift Up clicked")
 
     def handle_lift_down(self):
-        global lift_val
+        global lift_val 
         if lift_val > 0: #0
             lift_val -= 1
             self.liftValueLabel.setText(str(lift_val)) 
@@ -390,16 +390,20 @@ class Ui_MainWindow(object):
 
     def handle_motor_speed_up(self):
         global motor_speed_val
-        if motor_speed_val < 25:
-            motor_speed_val += 1
-            self.motorSpeedValueLabel.setText(str(motor_speed_val)) 
+        if motor_speed_val < 255:
+            motor_speed_val += 5
+            self.motorSpeedValueLabel.setText(str(motor_speed_val))
+            msg = ("motorSpeed_") + str(motor_speed_val)
+            sys2.main(self.arduino2, msg)
         print("Motor Speed Up clicked")
 
     def handle_motor_speed_down(self):
         global motor_speed_val
         if motor_speed_val > 0:
-            motor_speed_val -= 1
+            motor_speed_val -= 5
             self.motorSpeedValueLabel.setText(str(motor_speed_val)) 
+            msg = ("motorSpeed_") + str(motor_speed_val)
+            sys2.main(self.arduino2, msg)
         print("Motor Speed Down clicked")
 
     def handle_inTime(self):
