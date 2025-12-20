@@ -1,12 +1,7 @@
-import socket
 import json
 import random
 from time import sleep
 
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect(('localhost', 9999))
-
-buffer = ""
 cx_max = 600
 cy_max = 660
 
@@ -42,18 +37,14 @@ def zone_tracking(cx, cy):
     target = target_zones(row, col)
     return row, col, target
 
-while True:
-    data = client_socket.recv(1024).decode()
-    if not data:
-        break
-    buffer += data
-    while '\n' in buffer:
-        line, buffer = buffer.split('\n', 1)
-        coords = json.loads(line)
-        cx = coords["cx"]#600
-        cy = coords["cy"]#660
-        if cx is not None and cy is not None:
-            # print(f"Received cx={cx}, cy={cy}")
-            row, col, target = zone_tracking(cx, cy)
-            print(f"Received row={row}, col={col}, target={target}")
-        sleep(1)
+def main(cx, cy):
+    if cx is not None and cy is not None:
+        # print(f"Received cx={cx}, cy={cy}")
+        row, col, target = zone_tracking(cx, cy)
+        #print(f"Received row={row}, col={col}, target={target}")
+        return row, col, target
+    else:
+        return 0, 0, 0
+
+if __name__ == "__main__":
+    main()

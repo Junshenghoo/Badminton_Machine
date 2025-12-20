@@ -8,7 +8,6 @@
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QApplication
-import detection
 import manual_ui
 from enum import Enum
 from time import sleep
@@ -290,11 +289,17 @@ class Ui_MainWindow(object):
             self.disable_all_buttons()
             QApplication.processEvents()
             current_mode = Mode.HOME
+            sys2.main(self.arduino2, "motor_home")
+            global y_degree_val
+            y_degree_val = 0
             global lift_val
             lift_val = 0
             self.liftValueLabel.setText(str(lift_val)) 
-            #sys1.main(self.arduino1, "motor_home")
-            sys2.main(self.arduino2, "motor_home")
+            sys1.main(self.arduino1, "motor_home")
+            global x_degree_val
+            x_degree_val = 0
+            self.xValueLabel.setText(str(x_degree_val))
+            self.yValueLabel.setText(str(y_degree_val))
             self.enable_all_buttons()
             self.homeButton.setStyleSheet("")
             self.stopButton.setStyleSheet("background-color: lightgreen")
@@ -304,6 +309,30 @@ class Ui_MainWindow(object):
         sys2.main(self.arduino2, "move_motor")
         print("Feeder button clicked")
 
+    def on_motor_speed_changed(self, speed):
+        global motor_speed_val
+
+        motor_speed_val = speed
+        self.motorSpeedValueLabel.setText(str(speed))
+
+        print("[MAIN] Motor speed updated:", speed)
+
+    def PosYChanged(self, y_value):
+        global y_degree_val
+
+        y_degree_val = y_value
+        self.yValueLabel.setText(str(y_degree_val))
+
+        print("[MAIN] y_degree_val updated:", y_value)
+
+    def PosXChanged(self, x_value):
+        global x_degree_val
+
+        x_degree_val = x_value
+        self.xValueLabel.setText(str(x_degree_val))
+
+        print("[MAIN] x_degree_val updated:", x_value)
+
     def handle_start(self):
         global current_status
         self.startButton.setStyleSheet("background-color: lightgreen")
@@ -312,21 +341,40 @@ class Ui_MainWindow(object):
         if current_mode == Mode.AUTO and current_status == Status.STOP:
             self.disable_all_buttons_except_stop()
             current_status = Status.START
-            detection.main()
+            self.manual_window, self.manual_ui = manual_ui.main(arduino1, arduino2, 1)
+            self.manual_window.PosXChanged.connect(
+                self.PosXChanged
+            )
+            self.manual_window.PosYChanged.connect(
+                self.PosYChanged
+            )
+            self.manual_window.motorSpeedChanged.connect(
+                self.on_motor_speed_changed
+            )
         elif current_mode == Mode.MANUAL and current_status == Status.STOP:
             self.disable_all_buttons_except_stop()
             current_status = Status.START
-            self.manual_window, self.manual_ui = manual_ui.main(arduino1, arduino2)
+            self.manual_window, self.manual_ui = manual_ui.main(arduino1, arduino2, 0)
+            self.manual_window.PosXChanged.connect(
+                self.PosXChanged
+            )
+            self.manual_window.PosYChanged.connect(
+                self.PosYChanged
+            )
+            self.manual_window.motorSpeedChanged.connect(
+                self.on_motor_speed_changed
+            )
+            
         else:
             current_status = Status.START
         
     def handle_stop(self):
         global current_status
         if current_status == Status.START and current_mode == Mode.AUTO:
-            import cv2
-            cv2.destroyAllWindows()
-            current_status = Status.STOP
-            print("OpenCV window destroyed.")
+            if hasattr(self, "manual_window") and self.manual_window is not None:
+                self.manual_window.close()  
+                self.manual_window = None   
+                print("Manual window closed.")
         elif current_status == Status.START and current_mode == Mode.MANUAL:
             if hasattr(self, "manual_window") and self.manual_window is not None:
                 self.manual_window.close()  
@@ -340,7 +388,7 @@ class Ui_MainWindow(object):
 
     def handle_up(self):
         global y_degree_val
-        if y_degree_val < 100:
+        if y_degree_val < 21:
             y_degree_val += 1
             self.yValueLabel.setText(str(y_degree_val))
             cmd = "stepperAngle_" + str(y_degree_val)
@@ -358,18 +406,20 @@ class Ui_MainWindow(object):
 
     def handle_left(self):
         global x_degree_val
-        if x_degree_val > -25:
+        if x_degree_val > -50:
             x_degree_val -= 1
             self.xValueLabel.setText(str(x_degree_val)) 
-            sys1.main(self.arduino1, "motor_left")
+            cmd = "motorLeftRight_" + str(x_degree_val)
+            sys1.main(self.arduino1, cmd)
         print("Left button clicked")
 
     def handle_right(self):
         global x_degree_val
-        if x_degree_val < 25:
+        if x_degree_val < 50:
             x_degree_val += 1
             self.xValueLabel.setText(str(x_degree_val)) 
-            sys1.main(self.arduino1, "motor_right")
+            cmd = "motorLeftRight_" + str(x_degree_val)
+            sys1.main(self.arduino1, cmd)
         print("Right button clicked")
 
     def handle_lift_up(self):

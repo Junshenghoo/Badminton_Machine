@@ -3,9 +3,26 @@ import time
 from ultralytics import YOLO
 import torch
 import numpy as np
-import socket
 import json
 import subprocess
+import coordinates_cal
+import manual_ui
+import socket
+
+def send_position(row, col, target, host='127.0.0.1', port=5005):
+    """Send row, col, target as a JSON string via TCP socket."""
+    data = {
+        'row': row,
+        'col': col,
+        'target': target
+    }
+    message = json.dumps(data).encode('utf-8')
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((host, port))
+            s.sendall(message)
+    except Exception as e:
+        print("Socket error:", e)
 
 cx = 0
 cy = 0
@@ -13,28 +30,6 @@ cy = 0
 model = YOLO("yolov11n.pt")
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model.to(device)
-
-def setup_socket():
-    import atexit
-
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('localhost', 9999))
-    server_socket.listen(1)
-    print("Waiting for client connection...")
-
-    # Launch subprocess and keep reference
-    process = subprocess.Popen(["python", "coordinates.py"])
-
-    # Ensure subprocess is killed when main program exits
-    atexit.register(lambda: process.terminate())
-
-    conn, addr = server_socket.accept()
-    print(f"Connected by {addr}")
-    return conn, process
-
-def send_coordinates(cx, cy, conn):
-    data = json.dumps({"cx": cx, "cy": cy})
-    conn.sendall(data.encode() + b'\n')  # Send data with newline as delimiter
 
 def overlay_image_alpha(img, overlay, x, y, alpha=0.5):
     h, w = overlay.shape[:2]
@@ -119,18 +114,32 @@ def detect_red_dot_opencv(transformed_frame):
 
     return None, None
 
-def main_program(cap):
-    conn, process  = setup_socket()
+stop_flag = False
+def register_stop_callback(cb):
+    global stop_callback
+    stop_callback = cb
+
+def stop_detection():
+    global stop_flag
+    stop_flag = True
+
+def main_program(cap, ui=None):
+    global stop_flag
     cx, cy = 0, 0
     cv2.namedWindow("YOLOv10 Detection with Red Dot", cv2.WINDOW_NORMAL)
-    # cv2.setWindowProperty("YOLOv10 Detection with Red Dot", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     cv2.resizeWindow("YOLOv10 Detection with Red Dot", 1080, 640)
     cv2.setMouseCallback("YOLOv10 Detection with Red Dot", mouse_callback)
     try:
-        while cap.isOpened() and cv2.getWindowProperty("YOLOv10 Detection with Red Dot", cv2.WND_PROP_VISIBLE) >= 1:
+        while cap.isOpened():
+            # 1. CHECK FOR CROSS BUTTON: If window is closed, stop everything
+            if cv2.getWindowProperty("YOLOv10 Detection with Red Dot", cv2.WND_PROP_VISIBLE) < 1:
+                print("[DETECTION] OpenCV window closed by user")
+                if stop_callback:
+                    stop_callback()
+                break # Exit the while loop
+
             ret, frame = cap.read()
-            if not ret:
-                break
+            if not ret: break
 
             start_time = time.time()
             width = int(1080*1.5)
@@ -170,7 +179,9 @@ def main_program(cap):
             if len(user_dots) == 4:
                 transformed_frame = perspective_transform(user_dots[0], user_dots[1], user_dots[2], user_dots[3], resized_frame)
                 cx, cy = detect_red_dot_opencv(transformed_frame)
-                send_coordinates(cx, cy, conn)
+                row, col, target = coordinates_cal.main(cx, cy)
+                # print(row, col, target)###########################################
+                send_position(row, col, target)
                 if cx is not None and cy is not None:
                     pass
                     # print("Red dot detected at:", cx, cy)
@@ -195,7 +206,6 @@ def main_program(cap):
                     print("No dots to remove.")
     finally:
         # Clean up
-        process.terminate()          # kill subprocess
         cap.release()
         cv2.destroyAllWindows()
         print("Program exited and subprocess terminated.")

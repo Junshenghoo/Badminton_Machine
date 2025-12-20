@@ -1,0 +1,49 @@
+{
+  "positions": {
+    "1": {
+      "vertical_angle": 21,
+      "horizontal_angle": -20,
+      "motor_speed": 20
+    },
+    "2": {
+      "vertical_angle": 21,
+      "horizontal_angle": 0,
+      "motor_speed": 15
+    },
+    "3": {
+      "vertical_angle": 21,
+      "horizontal_angle": 20,
+      "motor_speed": 20
+    },
+    "4": {
+      "vertical_angle": 15,
+      "horizontal_angle": -20,
+      "motor_speed": 15
+    },
+    "5": {
+      "vertical_angle": 15,
+      "horizontal_angle": 0,
+      "motor_speed": 10
+    },
+    "6": {
+      "vertical_angle": 15,
+      "horizontal_angle": 20,
+      "motor_speed": 15
+    },
+    "7": {
+      "vertical_angle": 10,
+      "horizontal_angle": -20,
+      "motor_speed": 10
+    },
+    "8": {
+      "vertical_angle": 10,
+      "horizontal_angle": 0,
+      "motor_speed": 5
+    },
+    "9": {
+      "vertical_angle": 10,
+      "horizontal_angle": 20,
+      "motor_speed": 10
+    }
+  }
+}
