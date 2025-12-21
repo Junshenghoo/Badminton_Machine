@@ -9,20 +9,25 @@ import coordinates_cal
 import manual_ui
 import socket
 
+def init_socket(host='127.0.0.1', port=5005):
+    global sock
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((host, port))
+    print("[DETECTION] Socket connected")
+
 def send_position(row, col, target, host='127.0.0.1', port=5005):
-    """Send row, col, target as a JSON string via TCP socket."""
+    global sock
+    if sock is None:
+        return
+
     data = {
-        'row': row,
-        'col': col,
-        'target': target
+        "row": int(row),
+        "col": int(col),
+        "target": int(target)
     }
-    message = json.dumps(data).encode('utf-8')
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((host, port))
-            s.sendall(message)
-    except Exception as e:
-        print("Socket error:", e)
+
+    message = json.dumps(data) + "\n"
+    sock.sendall(message.encode("utf-8"))
 
 cx = 0
 cy = 0
@@ -180,8 +185,9 @@ def main_program(cap, ui=None):
                 transformed_frame = perspective_transform(user_dots[0], user_dots[1], user_dots[2], user_dots[3], resized_frame)
                 cx, cy = detect_red_dot_opencv(transformed_frame)
                 row, col, target = coordinates_cal.main(cx, cy)
-                # print(row, col, target)###########################################
+                print("target: ", target)###########################################
                 send_position(row, col, target)
+                #time.sleep (1) checking latest target
                 if cx is not None and cy is not None:
                     pass
                     # print("Red dot detected at:", cx, cy)
@@ -189,6 +195,7 @@ def main_program(cap, ui=None):
                     cx, cy = 0, 0
             else:
                 cx, cy = 0, 0
+                send_position(0, 0, 0)
 
             virtual_court_display(resized_frame, cx, cy)    
             
@@ -205,14 +212,16 @@ def main_program(cap, ui=None):
                 else:
                     print("No dots to remove.")
     finally:
-        # Clean up
-        cap.release()
-        cv2.destroyAllWindows()
-        print("Program exited and subprocess terminated.")
+        if sock:
+            sock.close()
+            cap.release()
+            cv2.destroyAllWindows()
+            print("Program exited cleanly.")
 
 
 def main():
     #choice = input("Choose an option:\n1) Stream\n2) Recorded Video\nEnter 1 or 2: ")
+    init_socket() 
     choice = "2"
 
     if choice == "1":

@@ -9,60 +9,30 @@ import sys2
 import detection
 
 launch_en = 1
-# =====================================================
-# SOCKET THREAD (SERVER)
-# =====================================================
-class SocketThread(QtCore.QThread):
-    data_received = QtCore.pyqtSignal(int, int, int)  # row, col, target
-
-    def __init__(self, host="0.0.0.0", port=5005):
-        super().__init__()
-        self.host = host
-        self.port = port
-        self.running = True
-
-    def run(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind((self.host, self.port))
-            s.listen(1)
-            s.settimeout(1.0)
-
-            print(f"[SOCKET] Listening on {self.host}:{self.port}")
-
-            while self.running:
-                try:
-                    conn, addr = s.accept()
-                    with conn:
-                        data = conn.recv(1024)
-                        if not data:
-                            continue
-
-                        msg = json.loads(data.decode("utf-8"))
-                        row = msg.get("row", -1)
-                        col = msg.get("col", -1)
-                        target = msg.get("target", -1)
-
-                        self.data_received.emit(row, col, target)
-
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    print("Socket error:", e)
-
-    def stop(self):
-        self.running = False
-        self.quit()
-        self.wait()
-
 
 # =====================================================
 # READ JSON
 # =====================================================
 def read_config():
-    with open("config.json", "r") as f:
-        return json.load(f)["positions"]
+    try:
+        with open("config.json", "r") as f:
+            positions = json.load(f)
 
+        # Safety validation (recommended)
+        for i in range(1, 10):
+            key = str(i)
+            if key not in positions:
+                raise ValueError(f"Missing position {key}")
+
+            for field in ("vertical_angle", "horizontal_angle", "motor_speed"):
+                if field not in positions[key]:
+                    raise ValueError(f"Missing '{field}' in position {key}")
+
+        return positions
+
+    except Exception as e:
+        print("[CONFIG ERROR]", e)
+        return {}
 
 # =====================================================
 # MAIN WINDOW
@@ -156,32 +126,9 @@ class Ui_MainWindow:
         sys2.main(self.arduino2, "system_one")
         self.reset_button_colour()
 
-    def resetAutoMode(self):
-        sys2.main(self.arduino2, "resetAutoMode_0")
-
-    def autoMode(self):
-        sys2.main(self.arduino2, "autoMode_0")
-
     def emo(self):
         self.quit()
 
-
-# =====================================================
-# SOCKET → UI HANDLER
-# =====================================================
-def handle_socket_data(ui, row, col, target):
-    global launch_en
-    #print(f"[SOCKET] row={row}, col={col}, target={target}")
-    #print("emo:",sys2.emo)
-    
-    if 1 <= target <= 9:
-        # if sys2.emo == 1:
-        #     self.quit()
-        if launch_en == 1:
-            launch_en = 0
-            ui.handle_position(target)
-            ui.autoMode()
-            launch_en = 1
 
 
 # =====================================================
@@ -196,18 +143,5 @@ def main(arduino1, arduino2, autoMode):
     window = ManualWindow()
     ui = Ui_MainWindow(window, arduino1, arduino2, positions)
     ui.setupUi()
-    ui.resetAutoMode()
-
-    if autoMode == 1:
-
-        window.socket_thread = SocketThread()
-        window.socket_thread.data_received.connect(
-            lambda r, c, t: handle_socket_data(ui, r, c, t)
-        )
-        window.socket_thread.start()
-
-        # Run detection in background (IMPORTANT)
-        threading.Thread(target=detection.main, daemon=True).start()
-    else:
-        window.show()
+    window.show()
     return window, ui
