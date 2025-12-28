@@ -1,6 +1,6 @@
 import serial
 import time
-emo = 0
+sys2_launch_en = 1
 
 def sys2_init():
     arduino = serial.Serial(port='COM70', baudrate=9600, timeout=2)
@@ -8,7 +8,7 @@ def sys2_init():
     return arduino
 
 def main(arduino, command):
-    global emo
+    global sys2_launch_en
     try:
         cmd = command
         arduino.write((cmd + '\n').encode())
@@ -20,8 +20,11 @@ def main(arduino, command):
                     break
                 if "Invalid" in response.lower():  # case-insensitive match
                     break
-                if "emo" in response.lower():  # emergency stop
-                    emo = 1
+                if "disable" in response.lower():
+                    sys2_launch_en = 0
+                    break
+                if "enable" in response.lower():
+                    sys2_launch_en = 1
                     break
 
     except KeyboardInterrupt:

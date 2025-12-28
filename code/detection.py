@@ -185,7 +185,7 @@ def main_program(cap, ui=None):
                 transformed_frame = perspective_transform(user_dots[0], user_dots[1], user_dots[2], user_dots[3], resized_frame)
                 cx, cy = detect_red_dot_opencv(transformed_frame)
                 row, col, target = coordinates_cal.main(cx, cy)
-                print("target: ", target)###########################################
+                #print("target: ", target)###########################################
                 send_position(row, col, target)
                 #time.sleep (1) checking latest target
                 if cx is not None and cy is not None:

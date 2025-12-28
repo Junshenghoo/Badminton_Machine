@@ -1,11 +1,11 @@
 {
-  "1": {"vertical_angle": 10, "horizontal_angle": -20, "motor_speed": 150},
-  "2": {"vertical_angle": 12, "horizontal_angle": -10, "motor_speed": 150},
-  "3": {"vertical_angle": 15, "horizontal_angle": 0, "motor_speed": 160},
-  "4": {"vertical_angle": 12, "horizontal_angle": 10, "motor_speed": 150},
-  "5": {"vertical_angle": 10, "horizontal_angle": 20, "motor_speed": 150},
-  "6": {"vertical_angle": 18, "horizontal_angle": -15, "motor_speed": 170},
-  "7": {"vertical_angle": 20, "horizontal_angle": 0, "motor_speed": 180},
-  "8": {"vertical_angle": 18, "horizontal_angle": 15, "motor_speed": 170},
-  "9": {"vertical_angle": 16, "horizontal_angle": 25, "motor_speed": 160}
+  "1": {"vertical_angle": 10, "horizontal_angle": -20, "motor_speed": 15},
+  "2": {"vertical_angle": 12, "horizontal_angle": -10, "motor_speed": 10},
+  "3": {"vertical_angle": 15, "horizontal_angle": 0, "motor_speed": 5},
+  "4": {"vertical_angle": 12, "horizontal_angle": 10, "motor_speed": 15},
+  "5": {"vertical_angle": 10, "horizontal_angle": 20, "motor_speed": 10},
+  "6": {"vertical_angle": 18, "horizontal_angle": -15, "motor_speed": 5},
+  "7": {"vertical_angle": 20, "horizontal_angle": 0, "motor_speed": 15},
+  "8": {"vertical_angle": 18, "horizontal_angle": 15, "motor_speed": 10},
+  "9": {"vertical_angle": 16, "horizontal_angle": 25, "motor_speed": 5}
 }

@@ -25,6 +25,7 @@ motor_speed_val = 0
 period = 1
 launch_en = 1
 latest_target  = 0
+sys2_launch_en = 0
 target_lock = threading.Lock()
 
 class Mode(Enum):
@@ -399,6 +400,8 @@ class Ui_MainWindow(object):
         
     def handle_stop(self):
         global current_status
+        self.resetAutoMode()
+        sys2.main(self.arduino2, "stop_motor")
         if current_status == Status.START and current_mode == Mode.AUTO:
             if hasattr(self, "socket_thread") and self.socket_thread:
                 self.socket_thread.stop()
@@ -517,6 +520,7 @@ class Ui_MainWindow(object):
         sys2.main(self.arduino2, f"autoMode_{target_to_process}")
 
     def handle_position(self, pos):
+        global motor_speed_val
         key = str(pos)
         if not hasattr(self, "positions"):
             print("[ERROR] positions not loaded")
@@ -534,22 +538,26 @@ class Ui_MainWindow(object):
         print(f"[POS {pos}] V={v} H={h} S={s}")
 
         # Uncomment when ready
-        # sys2.main(self.arduino2, f"movePosY_{v}")
-        # sys1.main(self.arduino1, f"motorLeftRight_{h}")
-        # sys2.main(self.arduino2, f"motorSpeed_{s}")
+        sys2.main(self.arduino2, f"movePosY_{v}")
+        sys1.main(self.arduino1, f"motorLeftRight_{h}")
+        sys2.main(self.arduino2, f"motorSpeed_{s}")
+        motor_speed_val = s
+        self.motorSpeedValueLabel.setText(str(motor_speed_val)) 
 
         print(f"[POS {pos}] V={v} H={h} S={s}")
 
     def process_latest_target(self):
         global latest_target
         global launch_en
+        global sys2_launch_en
+        sys2_launch_en = sys2.sys2_launch_en
         with target_lock:
             if latest_target == 0:
                 return
             target_to_process = latest_target
             latest_target = 0  # reset after taking the latest
         print("latest_target: ", target_to_process)
-        if 1 <= target_to_process <= 9:
+        if (1 <= target_to_process <= 9) and sys2_launch_en == 1:
             if launch_en == 1:
                 launch_en = 0
                 ui.handle_position(target_to_process)
