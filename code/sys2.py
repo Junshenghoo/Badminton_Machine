@@ -26,6 +26,9 @@ def main(arduino, command):
                 if "enable" in response.lower():
                     sys2_launch_en = 1
                     break
+                if "emo" in response.lower():
+                    sys2_launch_en = 0
+                    break
 
     except KeyboardInterrupt:
         print("Exiting...")

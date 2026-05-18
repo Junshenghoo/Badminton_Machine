@@ -7,8 +7,10 @@ import threading
 import sys1
 import sys2
 import detection
+import random
 
 launch_en = 1
+sys2_launch_en = 0
 
 # =====================================================
 # READ JSON
@@ -81,6 +83,7 @@ class Ui_MainWindow:
 
         self.randomButton = QtWidgets.QPushButton("Random", self.centralwidget)
         self.randomButton.setGeometry(120, 320, 81, 71)
+        self.randomButton.clicked.connect(self.handle_random)
 
         self.launch1Button = QtWidgets.QPushButton("Launch 1", self.centralwidget)
         self.launch1Button.setGeometry(220, 320, 81, 71)
@@ -100,6 +103,7 @@ class Ui_MainWindow:
 
     # -------------------------------
     def handle_position(self, pos):
+
         if pos not in self.buttons:
             return
 
@@ -116,6 +120,10 @@ class Ui_MainWindow:
 
         print(f"[POS {pos}] V={v} H={h} S={s}")
 
+        self.window.motorSpeedChanged.emit(s)
+        self.window.PosYChanged.emit(v)
+        self.window.PosXChanged.emit(h)
+
     def handle_start(self):
         self.highlight(self.startButton)
         sys2.main(self.arduino2, "system_all")
@@ -126,10 +134,34 @@ class Ui_MainWindow:
         sys2.main(self.arduino2, "system_one")
         self.reset_button_colour()
 
+    def autoMode(self, target_to_process):
+        sys2.main(self.arduino2, f"autoMode_{target_to_process}")
+
+    def resetAutoMode(self):
+        sys2.main(self.arduino2, "resetAutoMode_0")
+
+    def handle_random(self):
+        global sys2_launch_en
+        global launch_en
+        while True:
+            sys2_launch_en = sys2.sys2_launch_en
+            print(sys2_launch_en)
+            if sys2_launch_en == 1:
+                random_number = random.randint(1, 9)
+                if (1 <= random_number <= 9) and sys2_launch_en == 1:
+                    if launch_en == 1:
+                        launch_en = 0
+                        self.handle_position(random_number)
+                        self.autoMode(random_number)
+                        launch_en = 1
+                self.reset_button_colour()
+                print("random launch completed")
+            else:
+                break
+        self.resetAutoMode()
+
     def emo(self):
         self.quit()
-
-
 
 # =====================================================
 # ENTRY POINT

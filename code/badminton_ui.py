@@ -560,8 +560,8 @@ class Ui_MainWindow(object):
         if (1 <= target_to_process <= 9) and sys2_launch_en == 1:
             if launch_en == 1:
                 launch_en = 0
-                ui.handle_position(target_to_process)
-                ui.autoMode(target_to_process)
+                ui.handle_position(target_to_process)#move position
+                ui.autoMode(target_to_process)#launch single time
                 launch_en = 1
 
 if __name__ == "__main__":
