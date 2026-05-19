@@ -163,7 +163,7 @@ void grip(){
     myservo2.write(0);//down
     delay(t2);
 
-    myservo1.write(5);//close
+    myservo1.write(0);//close
     delay(t);
 }
 

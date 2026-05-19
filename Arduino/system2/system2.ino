@@ -55,6 +55,20 @@ void loop() {
       else if (base == "stepperAngle") {
         stepperAngle(target.toInt());
       } 
+      else if (base == "movePosY") {
+        movePosY(target.toInt());
+      }
+      else if (base == "autoMode") {
+        autoMode();
+      }
+      else if (base == "resetAutoMode") {
+        resetAutoMode();
+      }
+      else if (base == "stop" && target == "motor") {
+        stop_motor();
+        dc_motor_stop();
+        Serial.print("Stop completed");
+      }
       else {
         Serial.println("[ERROR] Unknown command");
       }
