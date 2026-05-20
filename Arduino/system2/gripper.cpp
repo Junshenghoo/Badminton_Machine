@@ -21,14 +21,17 @@
 #define limit_switch_1 36
 #define limit_switch_2 38
 
-int t = 650;
+int t = 550;
 int t2 = 100;
 int val;
 int rot_cnt = 0;
 int tube = 1;
 int motorSpeed = 0;
 int previous_angle = 0;
+int homing_timeout_time = 0;
 int homing_timeout = 0;
+int launch_en = 1;
+int time_interval = 200;
 
 Servo myservo1;
 Servo myservo2;
@@ -50,8 +53,8 @@ void init_stepper(){
     pinMode(limit_switch_1, INPUT);
     pinMode(limit_switch_2, INPUT);
 
-    digitalWrite(motor_dir_1, HIGH);
-    digitalWrite(motor_dir_2, HIGH);
+    digitalWrite(motor_dir_1, LOW);
+    digitalWrite(motor_dir_2, LOW);
     digitalWrite(dc_motor, LOW);
     
 }
@@ -86,7 +89,29 @@ int rotate_feeder(){
     return 1;
 }
 
-void motor_homing(int dir, int t){
+void adjust_angle(int home, int times){
+    int step;
+    int time = 0;
+    if (home == 1){
+        step = 40;
+        time =1000;
+    }
+    else{
+        step = 10;
+        time = 500;
+    }
+
+    for (int i=0; i<step*times; i++){
+        digitalWrite(stepper_motor_angle1_pulse, HIGH);
+        digitalWrite(stepper_motor_angle2_pulse, HIGH);
+        delayMicroseconds(time);
+        digitalWrite(stepper_motor_angle1_pulse, LOW);
+        digitalWrite(stepper_motor_angle2_pulse, LOW);
+        delayMicroseconds(time);
+    }
+}
+
+void cylinder_motor_home(int dir, int t){
   digitalWrite(stepper_motor_tube_direction, dir);
   while (true){
     val = digitalRead(home_sen);
@@ -95,17 +120,40 @@ void motor_homing(int dir, int t){
       delayMicroseconds(t);
       digitalWrite(stepper_motor_tube_pulse, LOW);
       delayMicroseconds(t);
-      homing_timeout++;
+      homing_timeout_time++;
     }
     else{
       break; 
     }
-    if(homing_timeout>5000){
+    if(homing_timeout_time>5000){
         Serial.println("homing timeout");
-        homing_timeout = 0;
+        homing_timeout_time = 0;
+        homing_timeout = 1;
         break; 
     }
   }
+}
+
+void angle_motor_homing(){
+    int time = 1000;
+    while(1){
+        if (digitalRead(limit_switch_1) == 1){
+            delay(1000);
+            digitalWrite(stepper_motor_angle1_direction, LOW);
+            digitalWrite(stepper_motor_angle2_direction, HIGH);
+            for (int i=0; i<4; i++){
+                adjust_angle(0, 4);
+            }
+            Serial.println("moving up");
+            break;
+        }
+        else{
+            digitalWrite(stepper_motor_angle1_direction, HIGH);
+            digitalWrite(stepper_motor_angle2_direction, LOW);
+            adjust_angle(1, 1);
+            Serial.println("moving to limit switch");
+        }
+    }
 }
 
 void move_steps(int t, int steps){
@@ -117,16 +165,27 @@ void move_steps(int t, int steps){
   }
 }
 
+void cylindrical_motor_homing(){
+    cylinder_motor_home(1, 500);
+    if (homing_timeout != 1){
+        move_steps(500, 100);
+        delay(1000);
+        cylinder_motor_home(0, 1000);
+        delay(1000);
+        digitalWrite(stepper_motor_tube_direction, 1);
+        move_steps(1000, 50);
+        Serial.println("tube homing done");
+    }
+    else{
+        homing_timeout = 0;
+    }
+}
+
 void motor_home(){
-    motor_homing(1, 500);
-    move_steps(500, 100);
-    delay(1000);
-    motor_homing(0, 1000);
-    delay(1000);
-    digitalWrite(stepper_motor_tube_direction, 1);
-    move_steps(1000, 50);
-    Serial.println("tube homing completed");
-    previous_angle = 0;
+    cylindrical_motor_homing();
+    angle_motor_homing();
+    Serial.println("homing completed");
+    previous_angle = 16;
 }
 
 int move_motor(){
@@ -146,7 +205,7 @@ int move_motor(){
       return 1; 
     }
     else{
-      motor_homing(1, 500);
+      cylinder_motor_home(1, 500);
       move_steps(500, 90);
       tube = 1;
       Serial.println("feeder rotate completed");
@@ -161,9 +220,9 @@ void grip(){
     delay(t);
     
     myservo2.write(0);//down
-    delay(t2);
+    delay(time_interval);
 
-    myservo1.write(0);//close
+    myservo1.write(5);//close
     delay(t);
 }
 
@@ -176,44 +235,65 @@ void dc_motor_stop(){
 }
 
 void set_period(int period){
-    if (period == 1){
-        t2 = 100;
-    }
-    else if (period == 2){
-        t2 = 100 + 500/2;
-    }
-    else{
-        t2 = ((period * 1000) - 1300)/2;
+    switch (period)
+    {
+        case 2:
+            time_interval = 700;
+            break;
+        case 3:
+            time_interval = 1700;
+            break;
+        case 4:
+            time_interval = 2700;
+            break;
+        case 5:
+            time_interval = 3700;
+            break;
+        default:
+            time_interval = 200;
+            break;
     }
     Serial.println("period set completed");
-}
-
-void adjust_angle(){
-    for (int i=0; i<10; i++){
-        digitalWrite(stepper_motor_angle1_pulse, HIGH);
-        digitalWrite(stepper_motor_angle2_pulse, HIGH);
-        delayMicroseconds(500);
-        digitalWrite(stepper_motor_angle1_pulse, LOW);
-        digitalWrite(stepper_motor_angle2_pulse, LOW);
-        delayMicroseconds(500);
-    }
 }
 
 void stepperAngle(int angle){
     if (angle > previous_angle){
         digitalWrite(stepper_motor_angle1_direction, LOW);
         digitalWrite(stepper_motor_angle2_direction, HIGH);
-        adjust_angle();
+        adjust_angle(0, 1);
     }
     else{
         digitalWrite(stepper_motor_angle1_direction, HIGH);
         digitalWrite(stepper_motor_angle2_direction, LOW);
-        adjust_angle();
+        adjust_angle(0, 1);
     }
     previous_angle = angle;
     Serial.print("angle: ");
     Serial.print(angle);
     Serial.println(" set completed");
+}
+
+void movePosY(int angle){
+    int steps_y;
+    if ((angle > 21) || (angle <0)){
+        Serial.print("y over limit");
+    }
+    else{
+        if ((angle - previous_angle) > 0){
+            steps_y = angle - previous_angle;
+            digitalWrite(stepper_motor_angle1_direction, LOW);
+            digitalWrite(stepper_motor_angle2_direction, HIGH);
+            adjust_angle(0, steps_y);
+        }
+        else{
+            steps_y = previous_angle - angle;
+            digitalWrite(stepper_motor_angle1_direction, HIGH);
+            digitalWrite(stepper_motor_angle2_direction, LOW);
+            adjust_angle(0, steps_y);
+        }
+        previous_angle = angle;
+        Serial.println("move zone completed");
+    }
 }
 
 void motor_speed(int speed){
@@ -233,6 +313,69 @@ void stop_motor(){
 
 int emo_sig(){
     return digitalRead(emo);
+}
+
+void resetAutoMode(){
+    tube = 1;
+    launch_en = 1;
+    Serial.println("[auto mode] sys2 launch enable reset complete");
+}
+
+void autoMode(){
+    if (launch_en == 1){
+        while (1){
+            int shuttlecock_status = 0;
+            int distance = 0;
+            int stop_sig = 0;
+            
+            stop_sig = emo_sig();
+            distance = vl53l0x_read();
+            Serial.print("mo_sig: ");
+            Serial.println(stop_sig);
+
+            if (stop_sig == 1){
+                dc_motor_stop();
+                stop_motor();
+                Serial.println("[auto mode] emo pressed");
+                break;
+            }
+            else{
+                dc_motor_run();
+                start_motor();
+                if (distance < 300){
+                    shuttlecock_status = 1;
+                }
+                else{
+                    shuttlecock_status = 0;
+                }
+
+                if (shuttlecock_status == 1){
+                    grip();
+                    Serial.println("[auto mode] launch completed");
+                    delay(800);
+                    break;
+                }
+                else{
+                    if (tube < 6){
+                        rotate_feeder();
+                    }
+                    tube++;
+                }
+
+                if (tube == 7){
+                    cylinder_motor_home(1, 500);
+                    move_steps(500, 90);
+                    delay(1000);
+                    stop_motor();
+                    dc_motor_stop();
+                    Serial.println("[auto mode] all shuttlecock launching complete and sys2 launching disable");
+                    tube = 1;
+                    launch_en = 0;
+                    break;
+                }
+            }
+        }
+    }
 }
 
 void system_status(int start){
@@ -270,6 +413,7 @@ void system_status(int start){
 
             if (shuttlecock_status == 1){
                 grip();
+                delay(1500);
                 dc_motor_stop();
                 stop_motor();
                 Serial.println("shuttlecock launching completed");
@@ -297,13 +441,11 @@ void system_status(int start){
                     rotate_feeder();
                 }
                 tube++;
-                Serial.print("tube: ");
-                Serial.println(tube);
             }
         }
 
         if (tube == 7){
-            motor_homing(1, 500);
+            cylinder_motor_home(1, 500);
             move_steps(500, 90);
             delay(1000);
             stop_motor();

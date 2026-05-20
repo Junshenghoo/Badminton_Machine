@@ -9,5 +9,6 @@ void motor_down();
 void motor_home();
 void motor_left();
 void motor_right();
+void motorLeftRight(int angle);
 
 #endif

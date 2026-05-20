@@ -38,11 +38,8 @@ void loop() {
       else if (base == "motor" && target == "home") {
         motor_home();
       } 
-      else if (base == "motor" && target == "left") {
-        motor_left();
-      } 
-      else if (base == "motor" && target == "right") {
-        motor_right();
+      else if (base == "motorLeftRight") {
+        motorLeftRight(target.toInt());
       } 
       else if (base == "motor" && target == "home") {
         motor_home();

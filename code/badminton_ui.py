@@ -313,7 +313,7 @@ class Ui_MainWindow(object):
             current_mode = Mode.HOME
             sys2.main(self.arduino2, "motor_home")
             global y_degree_val
-            y_degree_val = 0
+            y_degree_val = 16
             global lift_val
             lift_val = 0
             self.liftValueLabel.setText(str(lift_val)) 
