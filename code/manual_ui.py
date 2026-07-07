@@ -68,8 +68,7 @@ class Ui_MainWindow:
         x = [20, 120, 220]
         y = [20, 120, 220]
         pos = 1
-
-        for r in range(3):
+        for r in range(2, -1, -1):   # 2, 1, 0
             for c in range(3):
                 btn = QtWidgets.QPushButton(str(pos), self.centralwidget)
                 btn.setGeometry(x[c], y[r], 81, 71)
